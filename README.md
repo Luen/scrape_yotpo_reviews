@@ -1,10 +1,9 @@
 # Yotpo Reviews Scraper
 This project contains a Node.js script using Puppeteer to scrape reviews from websites using Yotpo for customer reviews.
 
-Note that this is a learning project for myself and I'm a hobbyist programmer.
+The script navigates through the reviews section of a specified URL, dynamically handling modals and popups, and iterates through paginated review data. It extracts key information such as the reviewer's name, rating, review title, review description, and date of the review. Then returns that data as an array.
 
-# Description
-The script navigates through the reviews section of a specified URL, dynamically handling modals and popups, and iterates through paginated review data. It extracts key information such as the reviewer's name, rating, review title, review description, and date of the review.
+Note that this is a learning project for myself and I'm a hobbyist programmer.
 
 # Features
 - Dynamic Modal Handling: Utilizes MutationObserver to detect and remove modals and popups that may interfere with scraping.
@@ -38,6 +37,8 @@ yotpoScraper('https://example.com/product-reviews').then(reviews => {
 # Important Notes
 The script runs in non-headless mode for debugging. This can be changed in the Puppeteer launch options.
 Due to the dynamic nature of web pages, the script may need adjustments for different websites using Yotpo.
+
+This script is primarily for educational and experimental purposes. Please be aware of the ethical implications and the terms of service of Quillbot when using this script for paraphrasing content.
 
 # Contributing
 Contributions to improve this script are welcome. Please fork the repository and submit a pull request with your changes.
