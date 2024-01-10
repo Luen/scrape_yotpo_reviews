@@ -31,6 +31,19 @@ async function handleModalsDynamically(page) {
   await page.mouse.click(0, 0).catch(e => console.log('Error clicking outside modal:', e.message));
 }
 
+async function waitForContentChange(page, selector, previousContent) {
+  await page.waitForFunction(
+    (selector, previousContent) => {
+      const currentContent = document.querySelector(selector).textContent.trim();
+      return currentContent !== previousContent;
+    },
+    {},
+    selector,
+    previousContent
+  );
+}
+
+
 async function yotpoScraper(url) {
   let browser;
   try {
@@ -59,7 +72,20 @@ async function yotpoScraper(url) {
       height: 1024,
     });
 
-    await page.goto(url, { waitUntil: 'networkidle0' });
+    // Block Yotpo analytics requests
+    await page.setRequestInterception(true);
+    page.on('request', request => {
+      if (request.url().includes('https://p.yotpo.com/i?e=se&se_ca=reviews&se_ac=shown&se_psk')) {
+        request.abort();
+      } else {
+        request.continue();
+      }
+    });
+
+    // Log messages from the browser's console. 
+    // page.on('console', message => console.log(message.text()));
+
+    await page.goto(url, { waitUntil: 'networkidle2' });
 
     await page.waitForSelector(selectors.reviews);
 
@@ -101,20 +127,19 @@ async function yotpoScraper(url) {
 
       // if not last page in pagination, click to next page
       if (reviewsPages !== p) {
+        const previousContent = await page.$eval(selectors.review, el => el.textContent.trim());
         await page.click(selectors.next);
-
-        await page.waitForSelector(selectors.name);
-
-        // TO DO: Update the wait for selector
-        // The script isn't waiting for the page to load, so we'll wait a second
-        // eslint-disable-next-line no-promise-executor-return
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await page.waitForResponse(response => {
+          return response.url().includes('https://staticw2.yotpo.com/batch/app_key') && response.status() === 200;
+        });
+        await waitForContentChange(page, selectors.review, previousContent);
       }
     }
 
     return reviewsArr;
   } catch (error) {
     console.log(`Error: ${error}`);
+    return [];
   } finally {
     if (browser) {
       await browser.close();
