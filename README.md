@@ -22,7 +22,7 @@ npm install
 This will install Puppeteer and any other dependencies.
 
 # Usage
-The main function, yotpoScraper, takes a URL as an argument and returns an array of review data. Example usage:
+The primary function, yotpoScraper, takes a URL as an argument and returns an array of review data. Example usage:
 
 ```
 const { yotpoScraper } = require('./path_to_script');
@@ -38,10 +38,10 @@ yotpoScraper('https://example.com/product-reviews').then(reviews => {
 The script runs in non-headless mode for debugging. This can be changed in the Puppeteer launch options.
 Due to the dynamic nature of web pages, the script may need adjustments for different websites using Yotpo.
 
-This script is primarily for educational and experimental purposes. Please keep in mind the ethical implications and the terms of service of Quillbot when using this script for paraphrasing content.
+This script is primarily for educational and experimental purposes. Please keep in mind the ethical implications and the terms of service of Yotpo and the website(s) when using this script for paraphrasing content.
 
 # Contributing
-I want you to know that contributions to improve this script are welcome. Please fork the repository and submit a pull request with your changes.
+You should know that contributions to improve this script are welcome. Please fork the repository and submit a pull request with your changes.
 
 # License
 This project is licensed under the GNU License - please take a look at the LICENSE file for details.
