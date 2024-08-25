@@ -9,7 +9,7 @@
   "author": "Luen Warneke",
   "license": "ISC",
   "dependencies": {
-    "puppeteer": "^22.13.1"
+    "puppeteer": "^22.15.0"
   },
   "devDependencies": {
     "eslint": "^8.22.0"
