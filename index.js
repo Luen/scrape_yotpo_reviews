@@ -130,7 +130,18 @@ async function yotpoScraper(url) {
         const previousContent = await page.$eval(selectors.review, el => el.textContent.trim());
         await page.click(selectors.next);
         await page.waitForResponse(response => {
-          return response.url().includes('https://staticw2.yotpo.com/batch/app_key') && response.status() === 200;
+          try {
+            const u = new URL(response.url());
+            return (
+              u.protocol === 'https:' &&
+              u.hostname === 'staticw2.yotpo.com' &&
+              u.pathname.startsWith('/batch/app_key') &&
+              response.status() === 200
+            );
+          } catch (e) {
+            // If URL parsing fails, this is not the response we're looking for.
+            return false;
+          }
         });
         await waitForContentChange(page, selectors.review, previousContent);
       }
