@@ -1,0 +1,31 @@
+# Development files
+example.js
+.git/
+.gitignore
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files (if any)
+test/
+tests/
+__tests__/
+*.test.js
+
+# Documentation (optional - keeping README and LICENSE)
+# README.md
+# LICENSE

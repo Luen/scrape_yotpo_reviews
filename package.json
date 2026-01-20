@@ -1,13 +1,39 @@
 {
-  "name": "Yotpo Reviews",
+  "name": "yotpo-reviews-scraper",
   "version": "0.0.2",
-  "description": "Scrape Yotpo reviews from website",
+  "description": "Scrape Yotpo reviews from websites using Puppeteer",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "example": "node example.js"
   },
+  "keywords": [
+    "yotpo",
+    "reviews",
+    "scraper",
+    "puppeteer",
+    "web-scraping",
+    "customer-reviews",
+    "e-commerce"
+  ],
   "author": "Luen Warneke",
-  "license": "ISC",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/scrape_yotpo_reviews.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/scrape_yotpo_reviews/issues"
+  },
+  "homepage": "https://github.com/yourusername/scrape_yotpo_reviews#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "puppeteer": "^24.25.0"
   },
