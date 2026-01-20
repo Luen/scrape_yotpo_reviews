@@ -1,0 +1,82 @@
+---
+description: Version management and release workflow
+globs: ['package.json', '*.json']
+alwaysApply: false
+---
+
+# Version Management and Releases
+
+## Always Update Version
+
+**CRITICAL**: When making changes that should trigger a release, you MUST update the version in `package.json`.
+
+## Version Bumping Workflow
+
+### When to Bump Version
+
+- Adding new features → Bump **minor** version (0.1.0 → 0.2.0)
+- Fixing bugs → Bump **patch** version (0.1.0 → 0.1.1)
+- Breaking changes → Bump **major** version (0.1.0 → 1.0.0)
+
+### How to Bump Version
+
+1. **Edit package.json**: Update the `version` field
+   ```json
+   {
+     "version": "0.0.4"  // Update this number
+   }
+   ```
+
+2. **Commit the change**: Include version bump in your commit
+   ```bash
+   git add package.json
+   git commit -m "Bump version to 0.0.4"
+   ```
+
+3. **Push to trigger release**: GitHub Actions will automatically:
+   - Detect the version change
+   - Create a git tag (e.g., `v0.0.4`)
+   - Create a GitHub release
+   - Publish release notes
+
+## GitHub Actions Integration
+
+The project has a GitHub Actions workflow (`.github/workflows/release.yml`) that:
+- Monitors `package.json` for version changes
+- Automatically creates a release when version changes
+- Tags the release with `v{version}` format
+- Generates release notes from package description
+
+## Pre-Push Checklist
+
+When making changes that warrant a release:
+
+- [ ] Update `package.json` version field
+- [ ] Run `npm run lint` and fix any issues
+- [ ] Test your changes
+- [ ] Commit changes including version bump
+- [ ] Push to trigger automatic release
+
+## Example Workflow
+
+```bash
+# 1. Make your code changes
+# 2. Update version in package.json (e.g., 0.0.3 → 0.0.4)
+# 3. Run lint
+npm run lint:fix
+
+# 4. Commit everything
+git add .
+git commit -m "Add new feature - Bump version to 0.0.4"
+
+# 5. Push to trigger release
+git push origin master
+```
+
+## Version Format
+
+Follow [Semantic Versioning](https://semver.org/):
+- **MAJOR.MINOR.PATCH** (e.g., 1.2.3)
+- **MAJOR**: Breaking changes
+- **MINOR**: New features (backwards compatible)
+- **PATCH**: Bug fixes (backwards compatible)

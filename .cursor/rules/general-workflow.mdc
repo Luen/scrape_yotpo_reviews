@@ -1,0 +1,54 @@
+---
+description: General development workflow and best practices
+alwaysApply: true
+---
+
+# Development Workflow
+
+## Code Changes Workflow
+
+When making any code changes, follow this process:
+
+1. **Make Changes**: Write clean, DRY, maintainable code
+2. **Run Lint**: Always run `npm run lint:fix` after changes
+3. **Update Version**: If changes warrant a release, bump version in `package.json`
+4. **Commit**: Include version bump in commit message if applicable
+5. **Push**: Push to trigger GitHub Actions release (if version changed)
+
+## Key Principles
+
+### DRY (Don't Repeat Yourself)
+- Extract repeated code into reusable functions
+- Create utility modules for common operations
+- Avoid copy-pasting code blocks
+
+### Code Quality
+- Write readable, well-structured code
+- Use meaningful variable and function names
+- Follow project coding standards
+- Keep functions small and focused
+
+### Testing
+- Test your changes before committing
+- Verify functionality works as expected
+- Check for edge cases
+
+## Quick Reference Commands
+
+```bash
+# Lint code
+npm run lint
+
+# Auto-fix linting issues
+npm run lint:fix
+
+# Run example
+npm run example
+```
+
+## Commit Message Guidelines
+
+When committing code with version changes:
+- Include version number in commit message
+- Example: "Add pagination improvements - Bump version to 0.0.4"
+- Example: "Fix review extraction bug - Bump version to 0.0.3"

@@ -56,7 +56,11 @@ function delay(ms) {
 
 async function yotpoScraper(url, options = {}) {
     let browser;
-    const devMode = options.dev || process.env.NODE_ENV === 'development';
+    // Automatically enable dev mode if headless is false
+    // Default to headless: true (production mode) if not specified
+    const isHeadless = options.headless !== false;
+    // Dev mode is enabled if: explicitly set, OR headless is false, OR NODE_ENV is development
+    const devMode = options.dev !== undefined ? options.dev : (!isHeadless || process.env.NODE_ENV === 'development');
     const devOutputDir = path.join(process.cwd(), 'dev-output');
 
     // Helper function for dev logging
@@ -85,7 +89,7 @@ async function yotpoScraper(url, options = {}) {
     };
 
     try {
-    // Base selectors - will be updated dynamically based on what's found
+        // Base selectors - will be updated dynamically based on what's found
         const selectors = {
             yotpo: 'div.yotpo.yotpo-main-widget',
             reviews: 'div.yotpo-reviews',
@@ -96,7 +100,8 @@ async function yotpoScraper(url, options = {}) {
             desc: 'div.yotpo-review-content, div.content-review',
             date: 'div.yotpo-date-format, span.yotpo-review-date, div.yotpo-review-date',
             pager: 'div.yotpo-pager[data-total]',
-            next: 'div.yotpo-pager a[rel^=next]',
+            next: 'nav.yotpo-reviews-pagination-container a[aria-label*="next" i], nav.yotpo-reviews-pagination-container a[aria-label="Navigate to next page"], div.yotpo-pager a[rel^=next]',
+            previous: 'nav.yotpo-reviews-pagination-container a[aria-label*="previous" i], nav.yotpo-reviews-pagination-container a[aria-label="Navigate to previous page"]',
             expandButton: 'button.yotpo-sr-bottom-line-summary',
         };
 
@@ -125,8 +130,7 @@ async function yotpoScraper(url, options = {}) {
         devLog('Selectors:', JSON.stringify(selectors, null, 2));
 
         browser = await puppeteer.launch({
-            // headless: 'new',
-            headless: false,
+            headless: isHeadless,
         });
 
         devLog('Browser launched');
@@ -154,7 +158,22 @@ async function yotpoScraper(url, options = {}) {
         // Log messages from the browser's console in dev mode
         if (devMode) {
             page.on('console', (message) => {
-                devLog(`[Browser Console ${message.type()}]:`, message.text());
+                const text = message.text();
+                // Filter out common noise messages that don't affect functionality
+                const noisePatterns = [
+                    /Content Security Policy/i,
+                    /Refused to evaluate.*unsafe-eval/i,
+                    /script-src 'none'/i,
+                    /net::ERR_FAILED/i,
+                    /CORS policy/i,
+                    /Access to XMLHttpRequest/i,
+                ];
+
+                const isNoise = noisePatterns.some((pattern) => pattern.test(text));
+
+                if (!isNoise) {
+                    devLog(`[Browser Console ${message.type()}]:`, text);
+                }
             });
 
             page.on('pageerror', (error) => {
@@ -333,32 +352,125 @@ async function yotpoScraper(url, options = {}) {
         }
 
         devLog('Extracting pagination info...');
-        const reviewsTotal = await page.evaluate((selector) => {
+        let reviewsTotal = await page.evaluate((selector) => {
             const pager = document.querySelector(selector.pager);
             return pager ? pager.getAttribute('data-total') : null;
         }, selectors);
 
-        const reviewsPerPage = await page.evaluate((selector) => {
+        let reviewsPerPage = await page.evaluate((selector) => {
             const pager = document.querySelector(selector.pager);
             return pager ? pager.getAttribute('data-per-page') : null;
         }, selectors);
 
-        devLog('Reviews total:', reviewsTotal);
-        devLog('Reviews per page:', reviewsPerPage);
-
+        // Try alternative methods to get pagination info
         if (!reviewsTotal || !reviewsPerPage) {
-            devLog('ERROR: Could not get pagination info. Saving HTML for analysis...');
-            await saveHTML(page, '05-pagination-error.html', 'Pagination info missing');
+            devLog('Trying alternative methods to detect pagination...');
+            const paginationInfo = await page.evaluate((selector) => {
+                // Try to find pagination container
+                const paginationContainer = document.querySelector('nav.yotpo-reviews-pagination-container, nav[class*="pagination"]');
+                if (paginationContainer) {
+                    // Try to extract page numbers from pagination
+                    const pageLinks = Array.from(paginationContainer.querySelectorAll('a, button'));
+                    const pageNumbers = pageLinks
+                        .map((link) => {
+                            const text = link.textContent.trim();
+                            const num = parseInt(text, 10);
+                            return Number.isNaN(num) ? null : num;
+                        })
+                        .filter((num) => num !== null);
 
-            // Try to count reviews directly
-            const directReviewCount = await page.evaluate(
-                (selector) => document.querySelectorAll(selector.review).length,
-                selectors
-            );
-            devLog('Direct review count from DOM:', directReviewCount);
+                    // Try to find total from star ratings widget
+                    const starWidget = document.querySelector('#yotpo-reviews-star-ratings-widget');
+                    let totalFromWidget = null;
+                    if (starWidget) {
+                        const widgetText = starWidget.textContent || '';
+                        const match = widgetText.match(/(\d+)\s*(?:reviews?|total)/i);
+                        if (match) {
+                            totalFromWidget = parseInt(match[1], 10);
+                        }
+                    }
+
+                    // Count visible reviews
+                    const visibleReviews = document.querySelectorAll(selector.review).length;
+
+                    // Get max page number from pagination
+                    const maxPage = pageNumbers.length > 0 ? Math.max(...pageNumbers) : null;
+
+                    return {
+                        pageNumbers,
+                        maxPage,
+                        totalFromWidget,
+                        visibleReviews,
+                        paginationExists: !!paginationContainer,
+                    };
+                }
+                return null;
+            }, selectors);
+
+            devLog('Alternative pagination info:', JSON.stringify(paginationInfo, null, 2));
+
+            // Use alternative methods if available
+            if (paginationInfo) {
+                if (!reviewsTotal && paginationInfo.totalFromWidget) {
+                    reviewsTotal = paginationInfo.totalFromWidget.toString();
+                    devLog('Got total reviews from widget text:', reviewsTotal);
+                }
+                if (!reviewsPerPage && paginationInfo.visibleReviews) {
+                    reviewsPerPage = paginationInfo.visibleReviews.toString();
+                    devLog('Got reviews per page from visible count:', reviewsPerPage);
+                }
+                // If we have max page number, calculate from that
+                if (!reviewsTotal && paginationInfo.maxPage && paginationInfo.visibleReviews) {
+                    reviewsTotal = (paginationInfo.maxPage * paginationInfo.visibleReviews).toString();
+                    devLog('Estimated total reviews from max page:', reviewsTotal);
+                }
+            }
+
+            if (!reviewsTotal || !reviewsPerPage) {
+                devLog('ERROR: Could not get pagination info. Saving HTML for analysis...');
+                await saveHTML(page, '05-pagination-error.html', 'Pagination info missing');
+
+                // Try to count reviews directly
+                const directReviewCount = await page.evaluate(
+                    (selector) => document.querySelectorAll(selector.review).length,
+                    selectors
+                );
+                devLog('Direct review count from DOM:', directReviewCount);
+            }
         }
 
-        const reviewsPages = reviewsTotal && reviewsPerPage ? Math.ceil(reviewsTotal / reviewsPerPage) : 1;
+        // Calculate pages - if we don't have total, try to detect from pagination
+        let reviewsPages = 1;
+        if (reviewsTotal && reviewsPerPage) {
+            reviewsPages = Math.ceil(parseInt(reviewsTotal, 10) / parseInt(reviewsPerPage, 10));
+        } else {
+            // Try to detect number of pages from pagination elements
+            const pageCount = await page.evaluate(() => {
+                const paginationLinks = Array.from(
+                    document.querySelectorAll('nav[class*="pagination"] a, nav[class*="pagination"] button')
+                );
+                const pageNumbers = paginationLinks
+                    .map((link) => {
+                        const text = link.textContent.trim();
+                        const num = parseInt(text, 10);
+                        return Number.isNaN(num) ? null : num;
+                    })
+                    .filter((num) => num !== null && num > 0);
+                return pageNumbers.length > 0 ? Math.max(...pageNumbers) : 1;
+            });
+            reviewsPages = pageCount || 1;
+            devLog('Detected number of pages from pagination:', reviewsPages);
+        }
+
+        devLog('Final pagination info:');
+        devLog('  - Total reviews:', reviewsTotal || 'unknown');
+        devLog('  - Reviews per page:', reviewsPerPage || 'unknown');
+        devLog('  - Total pages:', reviewsPages);
+
+        devLog('Final pagination info:');
+        devLog('  - Total reviews:', reviewsTotal || 'unknown');
+        devLog('  - Reviews per page:', reviewsPerPage || 'unknown');
+        devLog('  - Total pages:', reviewsPages);
         console.log('Total reviews:', reviewsTotal || 'unknown');
         console.log('Reviews per page:', reviewsPerPage || 'unknown');
         console.log('Pages:', reviewsPages);
@@ -509,47 +621,143 @@ async function yotpoScraper(url, options = {}) {
             // add reviews to array
             reviewsArr = [...reviewsArr, ...d];
 
-            // if not last page in pagination, click to next page
+            // if not last page in pagination, navigate to next page
             if (reviewsPages !== p) {
                 devLog(`Navigating to page ${p + 1}...`);
-                const nextButtonExists = await page.$(selectors.next);
-                devLog(`Next button exists:`, !!nextButtonExists);
+                let navigated = false;
 
-                if (!nextButtonExists) {
-                    devLog('ERROR: Next button not found!');
-                    await saveHTML(page, `06-page-${p}-no-next-button.html`, `Page ${p} - Next button missing`);
-                    break;
+                // Strategy 1: Try next button (check if it's enabled)
+                const nextButton = await page.$(selectors.next);
+                let isNextButtonEnabled = false;
+
+                if (nextButton) {
+                    isNextButtonEnabled = await page.evaluate((sel) => {
+                        const btn = document.querySelector(sel);
+                        if (!btn) return false;
+                        // Check multiple ways button could be disabled
+                        const ariaDisabled = btn.getAttribute('aria-disabled');
+                        const hasDisabledClass = btn.classList.contains('disabled');
+                        const isDisabledAttr = btn.disabled;
+
+                        return ariaDisabled !== 'true' && !hasDisabledClass && !isDisabledAttr;
+                    }, selectors.next);
                 }
 
-                const previousContent = await page.$eval(selectors.review, (el) => el.textContent.trim()).catch(() => '');
-                devLog('Clicking next button...');
-                await page.click(selectors.next);
+                devLog(`Next button exists:`, !!nextButton);
+                devLog(`Next button enabled:`, isNextButtonEnabled);
 
-                devLog('Waiting for response...');
-                try {
-                    await page.waitForResponse((response) => {
+                if (nextButton && isNextButtonEnabled) {
+                    try {
+                        const previousContent = await page.$eval(selectors.review, (el) => el.textContent.trim()).catch(() => '');
+                        devLog('Clicking next button...');
+                        await page.click(selectors.next);
+
+                        devLog('Waiting for response...');
                         try {
-                            const u = new URL(response.url());
-                            return (
-                                u.protocol === 'https:'
-                && u.hostname === 'staticw2.yotpo.com'
-                && u.pathname.startsWith('/batch/app_key')
-                && response.status() === 200
-                            );
-                        } catch (e) {
-                            return false;
+                            await page.waitForResponse((response) => {
+                                try {
+                                    const u = new URL(response.url());
+                                    return (
+                                        u.protocol === 'https:'
+                                        && u.hostname === 'staticw2.yotpo.com'
+                                        && u.pathname.startsWith('/batch/app_key')
+                                        && response.status() === 200
+                                    );
+                                } catch (e) {
+                                    return false;
+                                }
+                            }, {timeout: 10000});
+                            devLog('Response received');
+                        } catch (error) {
+                            devLog('WARNING: Did not receive expected response:', error.message);
                         }
-                    }, {timeout: 10000});
-                    devLog('Response received');
-                } catch (error) {
-                    devLog('WARNING: Did not receive expected response:', error.message);
+
+                        devLog('Waiting for content change...');
+                        await waitForContentChange(page, selectors.review, previousContent);
+                        devLog('Content changed, ready for next page');
+                        navigated = true;
+                    } catch (error) {
+                        devLog('Error clicking next button:', error.message);
+                    }
                 }
 
-                devLog('Waiting for content change...');
-                await waitForContentChange(page, selectors.review, previousContent);
-                devLog('Content changed, ready for next page');
+                // Strategy 2: Try clicking specific page number
+                if (!navigated) {
+                    devLog('Trying to click page number directly...');
+                    try {
+                        const pageClicked = await page.evaluate((targetPage) => {
+                            const paginationLinks = Array.from(
+                                document.querySelectorAll('nav[class*="pagination"] a, nav[class*="pagination"] button')
+                            );
+                            for (const link of paginationLinks) {
+                                const text = link.textContent.trim();
+                                const num = parseInt(text, 10);
+                                if (num === targetPage && !link.disabled && !link.classList.contains('disabled')) {
+                                    link.click();
+                                    return true;
+                                }
+                            }
+                            return false;
+                        }, p + 1);
 
-                await saveHTML(page, `07-page-${p + 1}-loaded.html`, `Page ${p + 1} loaded`);
+                        if (pageClicked) {
+                            devLog(`Clicked page ${p + 1} number`);
+                            await delay(2000);
+                            const previousContent = await page.$eval(selectors.review, (el) => el.textContent.trim()).catch(() => '');
+                            await waitForContentChange(page, selectors.review, previousContent);
+                            navigated = true;
+                        }
+                    } catch (error) {
+                        devLog('Error clicking page number:', error.message);
+                    }
+                }
+
+                // Strategy 3: Try finding and clicking any non-disabled next/arrow button
+                if (!navigated) {
+                    devLog('Trying to find alternative next/arrow button...');
+                    try {
+                        const alternativeNext = await page.evaluate(() => {
+                            const buttons = Array.from(
+                                document.querySelectorAll(
+                                    'a[aria-label*="next" i], button[aria-label*="next" i], '
+                                        + 'a[class*="next"], button[class*="next"], '
+                                        + 'a[rel*="next"], [data-direction="next"]'
+                                )
+                            );
+                            for (const btn of buttons) {
+                                if (!btn.disabled && !btn.classList.contains('disabled')) {
+                                    btn.click();
+                                    return true;
+                                }
+                            }
+                            return false;
+                        });
+
+                        if (alternativeNext) {
+                            devLog('Clicked alternative next button');
+                            await delay(2000);
+                            navigated = true;
+                        }
+                    } catch (error) {
+                        devLog('Error with alternative next button:', error.message);
+                    }
+                }
+
+                if (!navigated) {
+                    devLog('ERROR: Could not navigate to next page!');
+                    await saveHTML(page, `06-page-${p}-navigation-failed.html`, `Page ${p} - Navigation failed`);
+                    // Try to continue anyway - maybe we're already on the last page
+                    const currentReviews = await page.evaluate(
+                        (selector) => document.querySelectorAll(selector.review).length,
+                        selectors
+                    );
+                    if (currentReviews === 0) {
+                        devLog('No reviews found, stopping pagination');
+                        break;
+                    }
+                } else {
+                    await saveHTML(page, `07-page-${p + 1}-loaded.html`, `Page ${p + 1} loaded`);
+                }
             }
         }
 

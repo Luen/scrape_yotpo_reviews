@@ -1,6 +1,6 @@
 {
   "name": "yotpo-reviews-scraper",
-  "version": "0.0.3",
+  "version": "1.0.1",
   "description": "Scrape Yotpo reviews from websites using Puppeteer",
   "main": "index.js",
   "scripts": {

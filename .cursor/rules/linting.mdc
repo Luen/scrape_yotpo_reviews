@@ -1,0 +1,45 @@
+---
+description: Linting requirements and standards
+globs: ['*.js', '*.jsx', '*.ts', '*.tsx']
+alwaysApply: false
+---
+
+# Linting Standards
+
+## Always Run Lint
+
+**IMPORTANT**: Always run lint checks before committing code changes.
+
+## Workflow
+
+1. **Before making changes**: Run `npm run lint` to check current codebase
+2. **After making changes**: Always run `npm run lint:fix` to automatically fix fixable issues
+3. **Verify**: Run `npm run lint` again to ensure no errors remain
+
+## ESLint Configuration
+
+- Follow the project's `.eslintrc` configuration
+- Address all linting errors before submitting code
+- Use `npm run lint:fix` to automatically fix most formatting issues
+- Manually fix any remaining errors that can't be auto-fixed
+
+## Pre-Commit Checklist
+
+- [ ] Run `npm run lint`
+- [ ] Fix all linting errors
+- [ ] Verify code passes linting without errors
+- [ ] Ensure code style is consistent with project standards
+
+## Auto-fix Command
+
+```bash
+npm run lint:fix
+```
+
+This command will automatically fix most linting issues including:
+- Indentation
+- Spacing
+- Quote style
+- Missing semicolons
+- Trailing commas
+- And more

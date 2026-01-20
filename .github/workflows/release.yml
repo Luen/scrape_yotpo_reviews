@@ -98,3 +98,50 @@ jobs:
                   prerelease: false
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    publish-npm:
+        needs: [check-version, create-release]
+        if: needs.check-version.outputs.should-release == 'true'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '18'
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Run lint
+              run: npm run lint
+
+            - name: Check npm token
+              id: check-token
+              run: |
+                  if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+                      echo "NPM_TOKEN secret is not set. Skipping npm publish."
+                      echo "token_set=false" >> $GITHUB_OUTPUT
+                  else
+                      echo "npm token is configured"
+                      echo "token_set=true" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Publish to npm
+              if: steps.check-token.outputs.token_set == 'true'
+              run: npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+            - name: Publish status
+              if: steps.check-token.outputs.token_set == 'true'
+              run: echo "Successfully published yotpo-reviews-scraper@${{ needs.check-version.outputs.version }} to npm"
+
+            - name: Skip publish notice
+              if: steps.check-token.outputs.token_set == 'false'
+              run: echo "⚠️ npm publishing skipped - NPM_TOKEN secret not configured. GitHub release created successfully."

@@ -1,0 +1,38 @@
+---
+description: Code quality and maintainability standards
+alwaysApply: true
+---
+
+# Code Quality Standards
+
+## Principles
+
+- **Clean Code**: Write code that is easy to read, understand, and maintain
+- **DRY (Don't Repeat Yourself)**: Avoid code duplication. Extract common functionality into reusable functions, modules, or utilities
+- **Maintainability**: Code should be easy to modify and extend without breaking existing functionality
+- **Quality First**: Prioritize code quality over speed. Well-written code saves time in the long run
+
+## Guidelines
+
+### Code Organization
+- Keep functions small and focused on a single responsibility
+- Use descriptive names for variables, functions, and modules
+- Group related functionality together
+- Follow consistent patterns and conventions
+
+### Avoiding Duplication
+- Extract repeated code blocks into functions
+- Create utility modules for common operations
+- Use configuration objects for similar patterns
+- Consider creating helper functions for repeated logic
+
+### Error Handling
+- Always handle errors gracefully
+- Provide meaningful error messages
+- Use try-catch blocks appropriately
+- Log errors for debugging purposes
+
+### Documentation
+- Add comments for complex logic
+- Keep README and documentation up to date
+- Use JSDoc comments for function documentation when appropriate
