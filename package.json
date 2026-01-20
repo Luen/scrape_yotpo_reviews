@@ -1,11 +1,13 @@
 {
   "name": "yotpo-reviews-scraper",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Scrape Yotpo reviews from websites using Puppeteer",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "example": "node example.js"
+    "example": "node example.js",
+    "lint": "eslint index.js example.js",
+    "lint:fix": "eslint index.js example.js --fix"
   },
   "keywords": [
     "yotpo",
@@ -38,6 +40,8 @@
     "puppeteer": "^24.25.0"
   },
   "devDependencies": {
-    "eslint": "^8.22.0"
+    "eslint": "^8.22.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.32.0"
   }
 }

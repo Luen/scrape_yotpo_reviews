@@ -1,0 +1,97 @@
+name: Release
+
+on:
+    push:
+        branches:
+            - main
+            - master
+        paths:
+            - 'package.json'
+
+jobs:
+    check-version:
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.version.outputs.version }}
+            should-release: ${{ steps.check.outputs.should-release }}
+            tag: ${{ steps.tag.outputs.tag }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Get version from package.json
+              id: version
+              run: |
+                  VERSION=$(node -p "require('./package.json').version")
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+                  echo "Current version: $VERSION"
+
+            - name: Check if version tag exists
+              id: check
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  TAG="v${VERSION}"
+                  
+                  # Check if tag exists
+                  if git rev-parse "$TAG" >/dev/null 2>&1; then
+                      echo "Tag $TAG already exists, skipping release"
+                      echo "should-release=false" >> $GITHUB_OUTPUT
+                  else
+                      echo "Tag $TAG does not exist, will create release"
+                      echo "should-release=true" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Set tag output
+              id: tag
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+                  echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+
+    create-release:
+        needs: check-version
+        if: needs.check-version.outputs.should-release == 'true'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Configure Git
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            - name: Create tag
+              id: tag
+              run: |
+                  VERSION="${{ needs.check-version.outputs.version }}"
+                  TAG="v${VERSION}"
+                  git tag -a "$TAG" -m "Release $TAG"
+                  git push origin "$TAG"
+                  echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+            - name: Extract release notes from package.json
+              id: release-notes
+              run: |
+                  DESCRIPTION=$(node -p "require('./package.json').description")
+                  VERSION="${{ needs.check-version.outputs.version }}"
+                  NOTES="## Version ${VERSION}\n\n${DESCRIPTION}\n\n### Installation\n\n\`\`\`bash\nnpm install yotpo-reviews-scraper@${VERSION}\n\`\`\`"
+                  echo "notes<<EOF" >> $GITHUB_OUTPUT
+                  echo -e "$NOTES" >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v1
+              with:
+                  tag_name: ${{ steps.tag.outputs.tag }}
+                  name: Release ${{ steps.tag.outputs.tag }}
+                  body: ${{ steps.release-notes.outputs.notes }}
+                  draft: false
+                  prerelease: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
